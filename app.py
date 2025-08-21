@@ -45,9 +45,12 @@ async def slow(request):
 app.templates["index.html"] = """<!doctype html>
   <html lang="en">
     <body>
-      {% block content %}
-      Hello
-      {% endblock %}
+      <div id=\"app\">
+        {% block content %}
+        Hello
+        {% endblock %}
+      </div>
+      <script type=\"module\" src=\"/app.js\"></script>
     </body>
   </html>
 """
