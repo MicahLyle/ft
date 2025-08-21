@@ -16,14 +16,6 @@ app = Django(
 )
 
 
-def print_request_middleware(get_response):
-    def middleware(request):
-        print(request)
-        return get_response(request)
-
-    return middleware
-
-
 @app.admin
 class CountLog(models.Model):
     # Standard Django model, registered with the admin site
@@ -31,10 +23,8 @@ class CountLog(models.Model):
 
 
 @app.route("/")
-def count(request):
-    # Standard Django function view
-    CountLog.objects.create()
-    return f"<p>Number of page loads: {CountLog.objects.count()}</p>"
+def index(request):
+    return app.render(request, "index.html", {})
 
 
 @app.api.get("/add")
@@ -50,3 +40,14 @@ async def slow(request):
 
     await asyncio.sleep(10)
     return "Async views supported"
+
+
+app.templates["index.html"] = """<!doctype html>
+  <html lang="en">
+    <body>
+      {% block content %}
+      Hello
+      {% endblock %}
+    </body>
+  </html>
+"""
