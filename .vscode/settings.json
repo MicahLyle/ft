@@ -1,0 +1,89 @@
+{
+    "esbonio.sphinx.confDir": "",
+    "eslint.useFlatConfig": true,
+    "eslint.validate": [
+        "html",
+        "javascript",
+        "javascriptreact",
+        "markdown",
+        "typescript",
+        "typescriptreact"
+    ],
+    "files.exclude": {
+        "**/.mypy_cache/**": true,
+        "**/.pytest_cache/**": true,
+        "**/.react-email/**": true,
+        "**/.ruff_cache/**": true,
+        "**/.swc/**": true,
+        "**/.venv/**": true
+    },
+    "files.watcherExclude": {
+        "**/dist-ssr/**": true,
+        "**/dist/**": true,
+        "**/htmlcov/**": true,
+        "**/staticfiles/**": true
+    },
+    "mypy-type-checker.args": [],
+    "mypy-type-checker.importStrategy": "fromEnvironment",
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.extraPaths": [
+        "PDFlib/windows/bind/python"
+    ],
+    "python.analysis.inlayHints.pytestParameters": true,
+    "python.analysis.packageIndexDepths": [
+        {
+            "depth": 2,
+            "name": "sklearn"
+        },
+        {
+            "depth": 2,
+            "name": "matplotlib"
+        },
+        {
+            "depth": 2,
+            "name": "scipy"
+        },
+        {
+            "depth": 3,
+            "name": "django"
+        },
+        {
+            "depth": 3,
+            "name": "celery"
+        },
+        {
+            "depth": 2,
+            "name": "flask"
+        },
+        {
+            "depth": 2,
+            "name": "fastapi"
+        }
+    ],
+    "python.languageServer": "Pylance",
+    "python.terminal.activateEnvInCurrentTerminal": false,
+    "python.testing.pytestArgs": [
+        "."
+    ],
+    "python.testing.pytestEnabled": true,
+    "python.testing.unittestEnabled": false,
+    "rewrap.wrappingColumn": 88,
+    "ruff.lint.ignore": [
+        "I001",
+        "I002",
+        "F401",
+        "RUF100"
+    ],
+    "ruff.nativeServer": true,
+    "ruff.organizeImports": true,
+    "search.exclude": {
+        "**/dist-ssr/**": true,
+        "**/dist/**": true,
+        "**/htmlcov/**": true,
+        "**/staticfiles/**": true
+    },
+    "typescript.enablePromptUseWorkspaceTsdk": true,
+    "typescript.experimental.updateImportsOnPaste": true,
+    "typescript.tsdk": "node_modules/typescript/lib",
+    "vim.textwidth": 88
+}
