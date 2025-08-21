@@ -1,5 +1,6 @@
 from django.db import models
 from nanodjango import Django
+from pydantic import BaseModel, Field
 
 app = Django(
     MIDDLEWARE=[
@@ -32,6 +33,16 @@ def add(request):
     # Django Ninja API support built in
     CountLog.objects.create()
     return {"count": CountLog.objects.count()}
+
+
+class PwPayload(BaseModel):
+    pw: str = Field(min_length=6, max_length=40)
+
+
+@app.api.post("/pw")
+def create_pw(request, payload: PwPayload):
+    # Simple echo endpoint; validation handled by Pydantic via Django Ninja
+    return {"ok": True, "length": len(payload.pw)}
 
 
 @app.route("/slow/")
