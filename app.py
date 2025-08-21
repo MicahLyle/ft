@@ -3,7 +3,7 @@ from nanodjango import Django
 
 app = Django(
     MIDDLEWARE=[
-        "ft.middleware.print_request_middleware",
+        "ft.middleware.outer_middleware",
         "django.middleware.security.SecurityMiddleware",
         "whitenoise.middleware.WhiteNoiseMiddleware",
         "django.contrib.sessions.middleware.SessionMiddleware",
