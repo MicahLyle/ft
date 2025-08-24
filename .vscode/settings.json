@@ -26,9 +26,7 @@
     "mypy-type-checker.args": [],
     "mypy-type-checker.importStrategy": "fromEnvironment",
     "python.analysis.autoImportCompletions": true,
-    "python.analysis.extraPaths": [
-        "PDFlib/windows/bind/python"
-    ],
+    "python.analysis.extraPaths": [],
     "python.analysis.inlayHints.pytestParameters": true,
     "python.analysis.packageIndexDepths": [
         {
@@ -60,7 +58,7 @@
             "name": "fastapi"
         }
     ],
-    "python.languageServer": "Pylance",
+    "python.languageServer": "None",
     "python.terminal.activateEnvInCurrentTerminal": false,
     "python.testing.pytestArgs": [
         "."
@@ -85,5 +83,7 @@
     "typescript.enablePromptUseWorkspaceTsdk": true,
     "typescript.experimental.updateImportsOnPaste": true,
     "typescript.tsdk": "node_modules/typescript/lib",
-    "vim.textwidth": 88
+    "vim.textwidth": 88,
+    "cursorpyright.analysis.autoImportCompletions": true,
+    "cursorpyright.analysis.extraPaths": []
 }
