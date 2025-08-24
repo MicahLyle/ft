@@ -1,15 +1,15 @@
-from django.db import models
-from django.db.models import Q
 from datetime import datetime
+from functools import wraps
 from typing import Literal
-from django.http import JsonResponse
-from django.contrib.auth.models import User
-from django.utils import timezone
+
 from django.contrib.auth.hashers import (
     check_password,
-    is_password_usable,
     make_password,
 )
+from django.db import models
+from django.db.models import Q
+from django.http import JsonResponse
+from django.utils import timezone
 from nanodjango import Django
 from pydantic import BaseModel, Field
 
@@ -26,6 +26,19 @@ app = Django(
         "django.middleware.clickjacking.XFrameOptionsMiddleware",
     ]
 )
+
+
+def with_error_type(view_func):
+    @wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        try:
+            return view_func(request, *args, **kwargs)
+        except Exception as exc:
+            message = str(exc).lower()
+            error_type = "db_locked" if "database is locked" in message else "unknown"
+            return JsonResponse({"ok": None, "error_type": error_type}, status=500)
+
+    return _wrapped
 
 
 @app.admin
@@ -87,7 +100,6 @@ def index(request):
 
 @app.api.get("/add")
 def add(request):
-    # Django Ninja API support built in
     CountLog.objects.create()
     return {"count": CountLog.objects.count()}
 
@@ -99,25 +111,22 @@ class PwPayload(BaseModel):
     hasher: Literal["bcrypt", "argon", "pbkdf2"]
 
 
-@app.api.post("/pw")
-def create_pw(request, payload: PwPayload):
-    # Simple echo endpoint; validation handled by Pydantic via Django Ninja
-    return {"ok": True, "length": len(payload.pw)}
-
-
 @app.api.post("/sync/pw/ping")
+@with_error_type
 def sync_pw_ping(request, payload: PwPayload):
     return JsonResponse(
         {
             "ok": True,
             "pw": payload.pw,
             "length": len(payload.pw),
+            "error_type": None,
         },
         status=200,
     )
 
 
 @app.api.post("/sync/pw/set")
+@with_error_type
 def sync_pw_set(request, payload: PwPayload):
     req_id = request.META.get("HTTP_X_DJANGO_REQUEST_ID") or ""
     assert req_id and isinstance(req_id, str)
@@ -137,12 +146,14 @@ def sync_pw_set(request, payload: PwPayload):
             "ok": True,
             "pw": payload.pw,
             "length": len(payload.pw),
+            "error_type": None,
         },
         status=200,
     )
 
 
 @app.api.post("/sync/pw/check")
+@with_error_type
 def sync_pw_check(request, payload: PwPayload):
     req_id = request.META.get("HTTP_X_DJANGO_REQUEST_ID")
     assert req_id and isinstance(req_id, str)
@@ -157,6 +168,7 @@ def sync_pw_check(request, payload: PwPayload):
                     "ok": True,
                     "pw": payload.pw,
                     "length": len(payload.pw),
+                    "error_type": None,
                 },
                 status=200,
             )
@@ -165,6 +177,7 @@ def sync_pw_check(request, payload: PwPayload):
                 "ok": False,
                 "pw": payload.pw,
                 "length": len(payload.pw),
+                "error_type": None,
             },
             status=400,
         )
@@ -174,12 +187,14 @@ def sync_pw_check(request, payload: PwPayload):
                 "ok": None,
                 "pw": payload.pw,
                 "length": len(payload.pw),
+                "error_type": None,
             },
             status=404,
         )
 
 
 @app.api.post("/sync/pw/set-and-check")
+@with_error_type
 def sync_pw_set_and_check(request, payload: PwPayload):
     req_id = request.META.get("HTTP_X_DJANGO_REQUEST_ID")
     assert req_id and isinstance(req_id, str)
@@ -208,6 +223,7 @@ def sync_pw_set_and_check(request, payload: PwPayload):
                     "ok2": ok2,
                     "pw": payload.pw,
                     "length": len(payload.pw),
+                    "error_type": None,
                 },
                 status=200,
             )
@@ -218,6 +234,7 @@ def sync_pw_set_and_check(request, payload: PwPayload):
                 "ok2": ok2,
                 "pw": payload.pw,
                 "length": len(payload.pw),
+                "error_type": None,
             },
             status=400,
         )
@@ -229,6 +246,7 @@ def sync_pw_set_and_check(request, payload: PwPayload):
                 "ok2": ok2,
                 "pw": payload.pw,
                 "length": len(payload.pw),
+                "error_type": None,
             },
             status=404,
         )

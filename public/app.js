@@ -1,8 +1,9 @@
-import { createApp, ref, reactive, computed } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
+import { computed, createApp, reactive, ref } from "https://unpkg.com/vue@3/dist/vue.esm-browser.js";
 
-function generateAlphanumeric(length = 10) {
-	const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-	let out = '';
+function generateAlphanumeric(length = 7) {
+	// Exclude visually similar characters: I, O, l, 0, 1
+	const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+	let out = "";
 	for (let i = 0; i < length; i += 1) {
 		out += chars.charAt(Math.floor(Math.random() * chars.length));
 	}
@@ -21,7 +22,7 @@ class Node {
 			frontendId: this.id,
 			initialized: true,
 			password: generateNodePassword(),
-			status: 'pending',
+			status: "pending",
 			frontendElapsedMs: undefined,
 			djangoStartDeltaMs: undefined,
 			djangoElapsedMs: undefined,
@@ -29,6 +30,7 @@ class Node {
 			djangoTid: undefined,
 			httpStatus: undefined,
 			ok: undefined,
+			error_type: undefined,
 			_error: undefined,
 		});
 	}
@@ -36,22 +38,22 @@ class Node {
 	async run(operation, config) {
 		const jsStartEpochMs = Date.now();
 		const jsStartPerfMs = performance.now();
-		this.state.status = 'started';
+		this.state.status = "started";
 		this.state._error = undefined;
 
 		const endpoint = {
-			'ping': '/api/sync/pw/ping',
-			'hash-pw': '/api/sync/pw/set',
-			'check-pw': '/api/sync/pw/check',
-			'hash-and-check-pw': '/api/sync/pw/set-and-check',
+			ping: "/api/sync/pw/ping",
+			"hash-pw": "/api/sync/pw/set",
+			"check-pw": "/api/sync/pw/check",
+			"hash-and-check-pw": "/api/sync/pw/set-and-check",
 		}[operation];
 
 		try {
 			const res = await fetch(endpoint, {
-				method: 'POST',
+				method: "POST",
 				headers: {
-					'Content-Type': 'application/json',
-					'X-Django-Request-ID': this.id,
+					"Content-Type": "application/json",
+					"X-Django-Request-ID": this.id,
 				},
 				body: JSON.stringify({
 					pw: this.state.password,
@@ -67,10 +69,10 @@ class Node {
 
 			// Headers
 			const hdr = res.headers;
-			const djangoStartIso = hdr.get('X-Django-Request-Start');
-			const djangoPerfMs = hdr.get('X-Django-Perf-Time-MS');
-			const djangoPid = hdr.get('X-Django-Python-Process-ID');
-			const djangoTid = hdr.get('X-Django-Native-Thread-ID') || hdr.get('X-Django-Python-Thread-ID');
+			const djangoStartIso = hdr.get("X-Django-Request-Start");
+			const djangoPerfMs = hdr.get("X-Django-Perf-Time-MS");
+			const djangoPid = hdr.get("X-Django-Python-Process-ID");
+			const djangoTid = hdr.get("X-Django-Native-Thread-ID") || hdr.get("X-Django-Python-Thread-ID");
 
 			if (djangoStartIso) {
 				const djangoStartEpochMs = Date.parse(djangoStartIso);
@@ -90,13 +92,18 @@ class Node {
 				data = null;
 			}
 
-			this.state.ok = data && 'ok' in data ? data.ok : undefined;
-			this.state.status = 'completed';
+			this.state.ok = data && "ok" in data ? data.ok : undefined;
+			this.state.error_type = data && "error_type" in data ? data.error_type : undefined;
+			if (this.state.httpStatus >= 500 || this.state.httpStatus === 404) {
+				this.state.ok = false;
+			}
+			this.state.status = "completed";
 			return { data, status: res.status };
 		} catch (err) {
 			this.state._error = String(err);
-			this.state.status = 'error';
+			this.state.status = "error";
 			this.state.httpStatus = undefined;
+			this.state.error_type = undefined;
 			return { data: null, status: undefined, error: err };
 		}
 	}
@@ -109,9 +116,9 @@ const App = {
 		const hasHashedAndChecked = ref(false);
 
 		const config = reactive({
-			db: 'sqlite',
-			operation: 'ping',
-			hasher: 'pbkdf2',
+			db: "sqlite",
+			operation: "ping",
+			hasher: "pbkdf2",
 			nodeCount: 100,
 		});
 
@@ -127,15 +134,15 @@ const App = {
 			}
 		}
 
-		const startedCount = computed(() => nodes.filter(n => n.state.status !== 'pending').length);
-		const completedCount = computed(() => nodes.filter(n => n.state.status === 'completed').length);
+		const startedCount = computed(() => nodes.filter((n) => n.state.status !== "pending").length);
+		const completedCount = computed(() => nodes.filter((n) => n.state.status === "completed").length);
 
 		async function runAll() {
 			if (running.value) return;
 			running.value = true;
 			ensureNodes(Math.min(Math.max(config.nodeCount, 1), 300));
 			for (const n of nodes) {
-				n.state.status = 'pending';
+				n.state.status = "pending";
 				n.state.frontendElapsedMs = undefined;
 				n.state.djangoStartDeltaMs = undefined;
 				n.state.djangoElapsedMs = undefined;
@@ -143,17 +150,18 @@ const App = {
 				n.state.djangoTid = undefined;
 				n.state.httpStatus = undefined;
 				n.state.ok = undefined;
+				n.state.error_type = undefined;
 				n.state._error = undefined;
 			}
 
 			const promises = nodes.map(async (n) => {
 				const { data, status } = await n.run(config.operation, config);
-				if (config.operation === 'hash-pw' && data && data.ok === true) {
+				if (config.operation === "hash-pw" && data && data.ok === true) {
 					hasHashed.value = true;
 				}
-				if (config.operation === 'hash-and-check-pw' && data) {
+				if (config.operation === "hash-and-check-pw" && data) {
 					if (data.ok === true) hasHashed.value = true;
-					if (typeof data.ok1 === 'boolean' || typeof data.ok2 === 'boolean') {
+					if (typeof data.ok1 === "boolean" || typeof data.ok2 === "boolean") {
 						hasHashedAndChecked.value = Boolean(data.ok1 && data.ok2);
 					}
 				}
@@ -218,6 +226,7 @@ const App = {
 						<th>Frontend ID</th>
 						<th>HTTP</th>
 						<th>OK</th>
+						<th>Error Type</th>
 						<th>Frontend Elapsed (ms)</th>
 						<th>Django Start Δms</th>
 						<th>Django Elapsed (ms)</th>
@@ -235,6 +244,7 @@ const App = {
 							<span v-else-if="n.state.ok === false" style="color: red;">✖</span>
 							<span v-else style="color: gray;">?</span>
 						</td>
+						<td>{{ n.state.error_type ?? '' }}</td>
 						<td>{{ n.state.frontendElapsedMs ?? '' }}</td>
 						<td>{{ n.state.djangoStartDeltaMs ?? '' }}</td>
 						<td>{{ n.state.djangoElapsedMs ?? '' }}</td>
@@ -253,6 +263,4 @@ const App = {
 	`,
 };
 
-createApp(App).mount('#app');
-
-
+createApp(App).mount("#app");
