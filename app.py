@@ -268,6 +268,10 @@ app.templates["index.html"] = """<!doctype html>
         Hello
         {% endblock %}
       </div>
+      <script src=\"https://cdn.jsdelivr.net/npm/echarts@6.0.0\"></script>
+      <script src=\"https://cdn.jsdelivr.net/npm/vue@3.5.18\"></script>
+      <script src=\"https://cdn.jsdelivr.net/npm/vue-echarts@8.0.0-beta.1\"></script>
+      <script src=\"/charts.js\"></script>
       <script type=\"module\" src=\"/app.js\"></script>
     </body>
   </html>
