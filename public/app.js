@@ -1,4 +1,4 @@
-import { computed, createApp, reactive, ref } from "https://unpkg.com/vue@3/dist/vue.esm-browser.js";
+const { computed, createApp, reactive, ref } = globalThis.Vue;
 
 function generateAlphanumeric(length = 7) {
 	// Exclude visually similar characters: I, O, l, 0, 1
@@ -34,6 +34,10 @@ class Node {
 			ok: undefined,
 			error_type: undefined,
 			_error: undefined,
+			concurrencyC1: undefined,
+			concurrencyC2: undefined,
+			concurrencyC3: undefined,
+			concurrencyC4: undefined,
 		});
 	}
 
@@ -77,6 +81,10 @@ class Node {
 			const djangoPerfMs = hdr.get("X-Django-Perf-Time-MS");
 			const djangoPid = hdr.get("X-Django-Python-Process-ID");
 			const djangoTid = hdr.get("X-Django-Native-Thread-ID") || hdr.get("X-Django-Python-Thread-ID");
+			const c1s = hdr.get("X-Django-Concurrency-Start-Before");
+			const c2s = hdr.get("X-Django-Concurrency-Start-After");
+			const c3s = hdr.get("X-Django-Concurrency-End-Before");
+			const c4s = hdr.get("X-Django-Concurrency-End-After");
 
 			if (djangoStartIso) {
 				const djangoStartEpochMs = Date.parse(djangoStartIso);
@@ -88,6 +96,10 @@ class Node {
 			this.state.djangoPid = djangoPid || undefined;
 			this.state.djangoTid = djangoTid || undefined;
 			this.state.httpStatus = res.status;
+			this.state.concurrencyC1 = c1s !== null && c1s !== "" && !Number.isNaN(parseInt(c1s, 10)) ? parseInt(c1s, 10) : undefined;
+			this.state.concurrencyC2 = c2s !== null && c2s !== "" && !Number.isNaN(parseInt(c2s, 10)) ? parseInt(c2s, 10) : undefined;
+			this.state.concurrencyC3 = c3s !== null && c3s !== "" && !Number.isNaN(parseInt(c3s, 10)) ? parseInt(c3s, 10) : undefined;
+			this.state.concurrencyC4 = c4s !== null && c4s !== "" && !Number.isNaN(parseInt(c4s, 10)) ? parseInt(c4s, 10) : undefined;
 
 			let data = null;
 			try {
@@ -116,85 +128,126 @@ class Node {
 
 // Utility stats helpers
 function numericMedian(values) {
-    const nums = values.filter((v) => typeof v === "number" && !Number.isNaN(v)).slice().sort((a, b) => a - b);
-    if (nums.length === 0) return undefined;
-    const mid = Math.floor(nums.length / 2);
-    if (nums.length % 2 === 0) return Number(((nums[mid - 1] + nums[mid]) / 2).toFixed(4));
-    return Number(nums[mid].toFixed(4));
+	const nums = values
+		.filter((v) => typeof v === "number" && !Number.isNaN(v))
+		.slice()
+		.sort((a, b) => a - b);
+	if (nums.length === 0) return undefined;
+	const mid = Math.floor(nums.length / 2);
+	if (nums.length % 2 === 0) return Number(((nums[mid - 1] + nums[mid]) / 2).toFixed(4));
+	return Number(nums[mid].toFixed(4));
 }
 
 function numericMean(values) {
-    const nums = values.filter((v) => typeof v === "number" && !Number.isNaN(v));
-    if (nums.length === 0) return undefined;
-    const sum = nums.reduce((acc, v) => acc + v, 0);
-    return Number((sum / nums.length).toFixed(4));
+	const nums = values.filter((v) => typeof v === "number" && !Number.isNaN(v));
+	if (nums.length === 0) return undefined;
+	const sum = nums.reduce((acc, v) => acc + v, 0);
+	return Number((sum / nums.length).toFixed(4));
 }
 
 const COLOR_PALETTE = [
-    "red", "green", "blue", "orange", "purple",
-    "teal", "olive", "maroon", "navy", "lime",
-    "aqua", "fuchsia", "silver", "gray", "black",
-    "brown", "coral", "darkgoldenrod", "darkcyan", "indigo",
+	"red",
+	"green",
+	"blue",
+	"orange",
+	"purple",
+	"teal",
+	"olive",
+	"maroon",
+	"navy",
+	"lime",
+	"aqua",
+	"fuchsia",
+	"silver",
+	"gray",
+	"black",
+	"brown",
+	"coral",
+	"darkgoldenrod",
+	"darkcyan",
+	"indigo",
 ];
 
 function buildCountsWithColors(values) {
-    const counts = new Map();
-    for (const v of values) {
-        if (!v) continue;
-        counts.set(v, (counts.get(v) || 0) + 1);
-    }
-    const unique = Array.from(counts.keys()).sort();
-    const result = [];
-    for (let i = 0; i < unique.length; i += 1) {
-        const key = unique[i];
-        result.push({ key, count: counts.get(key), color: COLOR_PALETTE[i % COLOR_PALETTE.length] });
-    }
-    return result;
+	const counts = new Map();
+	for (const v of values) {
+		if (!v) continue;
+		counts.set(v, (counts.get(v) || 0) + 1);
+	}
+	const unique = Array.from(counts.keys()).sort();
+	const result = [];
+	for (let i = 0; i < unique.length; i += 1) {
+		const key = unique[i];
+		result.push({ key, count: counts.get(key), color: COLOR_PALETTE[i % COLOR_PALETTE.length] });
+	}
+	return result;
 }
 
 function computeConcurrencyBuckets(nodes) {
-    const valid = nodes.filter((n) => typeof n.state.jsStartEpochMs === "number" && typeof n.state.jsEndEpochMs === "number");
-    if (valid.length === 0) return [];
-    const globalStart = Math.min(...valid.map((n) => n.state.jsStartEpochMs));
-    const globalEnd = Math.max(...valid.map((n) => n.state.jsEndEpochMs));
-    const total = globalEnd - globalStart;
-    if (!(total > 0)) return [];
+	const valid = nodes.filter(
+		(n) => typeof n.state.jsStartEpochMs === "number" && typeof n.state.jsEndEpochMs === "number"
+	);
+	if (valid.length === 0) return [];
+	const globalStart = Math.min(...valid.map((n) => n.state.jsStartEpochMs));
+	const globalEnd = Math.max(...valid.map((n) => n.state.jsEndEpochMs));
+	const total = globalEnd - globalStart;
+	if (!(total > 0)) return [];
 
-    // Precompute server intervals in epoch for nodes that have Django times
-    const serverIntervals = nodes.map((n) => {
-        const hasAll = typeof n.state.jsStartEpochMs === "number"
-            && typeof n.state.djangoStartDeltaMs === "number"
-            && typeof n.state.djangoElapsedMs === "number";
-        if (!hasAll) return null;
-        const start = n.state.jsStartEpochMs + n.state.djangoStartDeltaMs;
-        const end = start + n.state.djangoElapsedMs;
-        return { start, end };
-    }).filter(Boolean);
+	// Precompute server intervals in epoch for nodes that have Django times
+	const serverIntervals = nodes
+		.map((n) => {
+			const hasAll =
+				typeof n.state.jsStartEpochMs === "number" &&
+				typeof n.state.djangoStartDeltaMs === "number" &&
+				typeof n.state.djangoElapsedMs === "number";
+			if (!hasAll) return null;
+			const start = n.state.jsStartEpochMs + n.state.djangoStartDeltaMs;
+			const end = start + n.state.djangoElapsedMs;
+			return { start, end };
+		})
+		.filter(Boolean);
 
-    const bucketCount = 20;
-    const bucketWidth = total / bucketCount;
-    const out = [];
-    for (let i = 0; i < bucketCount; i += 1) {
-        const center = globalStart + (i + 0.5) * bucketWidth;
-        const concurrency = serverIntervals.reduce((acc, iv) => acc + ((iv.start <= center && center <= iv.end) ? 1 : 0), 0);
-        out.push({ deltaMs: Number(((center - globalStart)).toFixed(4)), concurrency });
-    }
-    return out;
+	const bucketCount = 20;
+	const bucketWidth = total / bucketCount;
+	const out = [];
+	for (let i = 0; i < bucketCount; i += 1) {
+		const center = globalStart + (i + 0.5) * bucketWidth;
+		const concurrency = serverIntervals.reduce((acc, iv) => acc + (iv.start <= center && center <= iv.end ? 1 : 0), 0);
+		out.push({ deltaMs: Number((center - globalStart).toFixed(4)), concurrency });
+	}
+	return out;
 }
 
 function buildNodeGroupStats(nodes) {
-    const elapsed = nodes.map((n) => n.state.djangoElapsedMs).filter((v) => typeof v === "number" && !Number.isNaN(v));
-    const min = elapsed.length ? Number(Math.min(...elapsed).toFixed(4)) : undefined;
-    const max = elapsed.length ? Number(Math.max(...elapsed).toFixed(4)) : undefined;
-    const median = numericMedian(elapsed);
-    const mean = numericMean(elapsed);
+	const elapsed = nodes.map((n) => n.state.djangoElapsedMs).filter((v) => typeof v === "number" && !Number.isNaN(v));
+	const min = elapsed.length ? Number(Math.min(...elapsed).toFixed(4)) : undefined;
+	const max = elapsed.length ? Number(Math.max(...elapsed).toFixed(4)) : undefined;
+	const median = numericMedian(elapsed);
+	const mean = numericMean(elapsed);
 
-    const pidCounts = buildCountsWithColors(nodes.map((n) => n.state.djangoPid));
-    const tidCounts = buildCountsWithColors(nodes.map((n) => n.state.djangoTid));
+	const pidCounts = buildCountsWithColors(nodes.map((n) => n.state.djangoPid));
+	const tidCounts = buildCountsWithColors(nodes.map((n) => n.state.djangoTid));
 
-    const buckets = computeConcurrencyBuckets(nodes);
+	const buckets = computeConcurrencyBuckets(nodes);
 
-    return { min, max, median, mean, pidCounts, tidCounts, buckets };
+	// Compute the maximum server end delta (relative to earliest JS start), to size x-axes
+	let maxServerEndDelta = undefined;
+	const serverCandidates = nodes.filter((n) => typeof n.state.jsStartEpochMs === "number"
+		&& typeof n.state.djangoStartDeltaMs === "number"
+		&& typeof n.state.djangoElapsedMs === "number");
+	if (serverCandidates.length > 0) {
+		const globalStart = Math.min(...serverCandidates.map((n) => n.state.jsStartEpochMs));
+		const endDeltas = serverCandidates.map((n) => {
+			const start = n.state.jsStartEpochMs + n.state.djangoStartDeltaMs;
+			const end = start + n.state.djangoElapsedMs;
+			return end - globalStart;
+		});
+		if (endDeltas.length > 0) {
+			maxServerEndDelta = Number(Math.max(...endDeltas).toFixed(4));
+		}
+	}
+
+	return { min, max, median, mean, pidCounts, tidCounts, buckets, maxServerEndDelta };
 }
 
 const App = {
@@ -273,6 +326,34 @@ const App = {
 
 		const groupStats = computed(() => buildNodeGroupStats(nodes));
 
+		// ECharts options (computed)
+		const pidBarOptions = computed(() => {
+			const builder = (globalThis.FTCharts && FTCharts.options && FTCharts.options.buildPidCountBarOptions) || null;
+			return builder ? builder(groupStats.value) : {};
+		});
+		const tidBarOptions = computed(() => {
+			const builder = (globalThis.FTCharts && FTCharts.options && FTCharts.options.buildTidCountBarOptions) || null;
+			return builder ? builder(groupStats.value) : {};
+		});
+		const idxToDjangoElapsedOptions = computed(() => {
+			const builder =
+				(globalThis.FTCharts && FTCharts.options && FTCharts.options.buildIndexToValueScatterOptions) || null;
+			return builder ? builder("Req Index → Django Elapsed ms", nodes, "djangoElapsedMs") : {};
+		});
+		const idxToOverallMsOptions = computed(() => {
+			const builder =
+				(globalThis.FTCharts && FTCharts.options && FTCharts.options.buildIndexToOverallRequestTimeOptions) || null;
+			return builder ? builder(nodes) : {};
+		});
+		const concurrencyLineOptions = computed(() => {
+			const builder = (globalThis.FTCharts && FTCharts.options && FTCharts.options.buildConcurrencyLineOptions) || null;
+			return builder ? builder(groupStats.value) : {};
+		});
+		const waterfallOptions = computed(() => {
+			const builder = (globalThis.FTCharts && FTCharts.options && FTCharts.options.buildWaterfallOptions) || null;
+			return builder ? builder(nodes) : {};
+		});
+
 		return {
 			nodes,
 			running,
@@ -285,6 +366,12 @@ const App = {
 			runAll,
 			ensureNodes,
 			groupStats,
+			pidBarOptions,
+			tidBarOptions,
+			idxToDjangoElapsedOptions,
+			idxToOverallMsOptions,
+			concurrencyLineOptions,
+			waterfallOptions,
 		};
 	},
 	template: `
@@ -334,6 +421,7 @@ const App = {
 						<th>Django Elapsed (ms)</th>
 						<th>Django PID</th>
 						<th>Django TID</th>
+						<th>Req C</th>
 						<th>Status</th>
 					</tr>
 				</thead>
@@ -354,6 +442,12 @@ const App = {
 						<td>{{ n.state.djangoPid ?? '' }}</td>
 						<td>{{ n.state.djangoTid ?? '' }}</td>
 						<td>
+							<span v-if="n.state.concurrencyC1 !== undefined || n.state.concurrencyC2 !== undefined || n.state.concurrencyC3 !== undefined || n.state.concurrencyC4 !== undefined">
+								{{ [n.state.concurrencyC1, n.state.concurrencyC2, n.state.concurrencyC3, n.state.concurrencyC4].map(v => v === undefined ? '' : v).join(', ') }}
+							</span>
+							<span v-else></span>
+						</td>
+						<td>
 							<span v-if="n.state.status === 'pending'">pending</span>
 							<span v-else-if="n.state.status === 'started'">started</span>
 							<span v-else-if="n.state.status === 'completed'">completed</span>
@@ -364,7 +458,19 @@ const App = {
 			</table>
 
 			<div v-if="nodes.length > 0" style="margin-top: 16px;">
-				<h3>Stats</h3>
+				<h3>Charts</h3>
+				<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+					<v-chart :option="pidBarOptions" autoresize style="width: 100%; height: 260px; border: 1px solid #ddd;" />
+					<v-chart :option="tidBarOptions" autoresize style="width: 100%; height: 260px; border: 1px solid #ddd;" />
+					<v-chart :option="idxToDjangoElapsedOptions" autoresize style="width: 100%; height: 260px; border: 1px solid #ddd;" />
+					<v-chart :option="idxToOverallMsOptions" autoresize style="width: 100%; height: 260px; border: 1px solid #ddd;" />
+					<v-chart :option="concurrencyLineOptions" autoresize style="width: 100%; height: 260px; border: 1px solid #ddd; grid-column: span 2;" />
+					<v-chart :option="waterfallOptions" autoresize style="width: 100%; height: 340px; border: 1px solid #ddd; grid-column: span 2;" />
+				</div>
+			</div>
+
+			<div v-if="nodes.length > 0" style="margin-top: 16px;">
+				<h3>Raw Stats</h3>
 				<div>
 					<strong>Django Elapsed (ms)</strong>:
 					<span>min={{ groupStats.min ?? '—' }}</span>,
@@ -403,4 +509,8 @@ const App = {
 	`,
 };
 
-createApp(App).mount("#app");
+const __app = createApp(App);
+if (globalThis.FTCharts && typeof FTCharts.registerCharts === "function") {
+	FTCharts.registerCharts(__app);
+}
+__app.mount("#app");
