@@ -69,10 +69,6 @@ class ProcessGlobal:
         return self._counter.read()
 
 
-thread_global = ThreadGlobal()
-
-process_global = ProcessGlobal()
-
 selected_counter: Final[ThreadGlobal | ProcessGlobal] = (
-    thread_global if WORKER_TYPE == "t" else process_global
+    ThreadGlobal() if WORKER_TYPE == "t" else ProcessGlobal()
 )

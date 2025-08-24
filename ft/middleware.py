@@ -3,14 +3,22 @@ from itertools import count
 from os import getpid
 from threading import get_ident, get_native_id
 from time import perf_counter
+from typing import Final
 from uuid import uuid4
 
 from django.http import HttpResponse
 from django.utils import timezone
 
-from ft.instrumentation import selected_counter
+from ft.instrumentation import (
+    WORKER_TYPE,
+    ProcessGlobal,
+    ThreadGlobal,
+    selected_counter,
+)
 
-counter = count(1)
+req_id_counter: Final[ThreadGlobal | ProcessGlobal] = (
+    ThreadGlobal() if WORKER_TYPE == "t" else ProcessGlobal()
+)
 
 
 def outer_middleware(get_response):
@@ -19,7 +27,8 @@ def outer_middleware(get_response):
         datetime_start = datetime.now(UTC)
 
         if not request.headers.get("X-Django-Request-ID"):
-            request.META["HTTP_X_DJANGO_REQUEST_ID"] = str(next(counter))
+            next_req_id = req_id_counter.inc()[1]
+            request.META["HTTP_X_DJANGO_REQUEST_ID"] = f"be-{next_req_id}"
 
         c1: int | None = None
         c2: int | None = None
