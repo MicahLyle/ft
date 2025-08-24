@@ -85,5 +85,6 @@
     "typescript.tsdk": "node_modules/typescript/lib",
     "vim.textwidth": 88,
     "cursorpyright.analysis.autoImportCompletions": true,
-    "cursorpyright.analysis.extraPaths": []
+    "cursorpyright.analysis.extraPaths": [],
+    "python.terminal.shellIntegration.enabled": true
 }
