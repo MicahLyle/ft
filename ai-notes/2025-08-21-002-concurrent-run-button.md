@@ -1,5 +1,3 @@
-2025-08-21-001-concurrent-run-button
-
 What changed
 - Frontend run is now initiated only by a button click. The table is hidden until the run starts, and the run button disappears after the first click (single-use per page load). Regenerate password is disabled once the run has started.
 
