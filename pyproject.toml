@@ -11,4 +11,5 @@ dependencies = [
     "gunicorn>=23.0.0",
     "nanodjango>=0.11.2",
     "pydantic>=2.12.0a1",
+    "pydantic-settings>=2.4.0",
 ]

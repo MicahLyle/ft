@@ -10,14 +10,14 @@ from django.http import HttpResponse
 from django.utils import timezone
 
 from ft.instrumentation import (
-    WORKER_TYPE,
     ProcessGlobal,
     ThreadGlobal,
     selected_counter,
 )
+from ft.config import settings
 
 req_id_counter: Final[ThreadGlobal | ProcessGlobal] = (
-    ThreadGlobal() if WORKER_TYPE == "t" else ProcessGlobal()
+    ThreadGlobal() if settings.worker_type == "t" else ProcessGlobal()
 )
 
 

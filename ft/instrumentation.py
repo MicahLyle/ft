@@ -5,11 +5,7 @@ import threading
 import multiprocessing
 from typing import Final, Literal
 
-
-_worker_type_env_value = (os.getenv("WORKER_TYPE") or "").strip().lower()
-if _worker_type_env_value not in {"t", "p"}:
-    raise AssertionError("WORKER_TYPE must be 't' or 'p'")
-WORKER_TYPE: Final[Literal["t", "p"]] = _worker_type_env_value
+from .config import settings
 
 
 class ThreadGlobal:
@@ -70,5 +66,5 @@ class ProcessGlobal:
 
 
 selected_counter: Final[ThreadGlobal | ProcessGlobal] = (
-    ThreadGlobal() if WORKER_TYPE == "t" else ProcessGlobal()
+    ThreadGlobal() if settings.worker_type == "t" else ProcessGlobal()
 )
