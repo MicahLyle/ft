@@ -145,30 +145,111 @@ function numericMean(values) {
 	return Number((sum / nums.length).toFixed(4));
 }
 
-const COLOR_PALETTE = [
+// 32 distinct process colors (PIDs), spaced across hues from the 140 HTML color names.
+const PROCESS_COLOR_PALETTE = [
 	"red",
-	"green",
-	"blue",
-	"orange",
-	"purple",
-	"teal",
-	"olive",
-	"maroon",
-	"navy",
-	"lime",
-	"aqua",
-	"fuchsia",
-	"silver",
-	"gray",
-	"black",
-	"brown",
+	"orangered",
+	"tomato",
 	"coral",
-	"darkgoldenrod",
+	"darkorange",
+	"orange",
+	"gold",
+	"goldenrod",
+	"yellowgreen",
+	"chartreuse",
+	"lawngreen",
+	"limegreen",
+	"seagreen",
+	"mediumseagreen",
+	"teal",
 	"darkcyan",
+	"deepskyblue",
+	"dodgerblue",
+	"cornflowerblue",
+	"royalblue",
+	"mediumblue",
+	"slateblue",
+	"mediumpurple",
+	"blueviolet",
+	"mediumorchid",
+	"orchid",
+	"deeppink",
+	"hotpink",
+	"crimson",
 	"indigo",
+	"rebeccapurple",
+	"darkmagenta",
 ];
 
-function buildCountsWithColors(values) {
+// 64 distinct thread colors (TIDs), spaced and non-overlapping with process colors.
+const THREAD_COLOR_PALETTE = [
+	"firebrick",
+	"darkred",
+	"brown",
+	"chocolate",
+	"saddlebrown",
+	"sienna",
+	"salmon",
+	"darksalmon",
+	"lightsalmon",
+	"sandybrown",
+	"burlywood",
+	"tan",
+	"wheat",
+	"moccasin",
+	"navajowhite",
+	"peachpuff",
+	"bisque",
+	"antiquewhite",
+	"blanchedalmond",
+	"papayawhip",
+	"cornsilk",
+	"darkgoldenrod",
+	"khaki",
+	"darkkhaki",
+	"lemonchiffon",
+	"green",
+	"darkgreen",
+	"forestgreen",
+	"darkolivegreen",
+	"mediumaquamarine",
+	"aquamarine",
+	"springgreen",
+	"mediumspringgreen",
+	"lightgreen",
+	"palegreen",
+	"darkseagreen",
+	"aqua",
+	"cyan",
+	"turquoise",
+	"mediumturquoise",
+	"paleturquoise",
+	"lightcyan",
+	"lightblue",
+	"powderblue",
+	"lightskyblue",
+	"skyblue",
+	"steelblue",
+	"navy",
+	"midnightblue",
+	"blue",
+	"darkblue",
+	"darkslateblue",
+	"fuchsia",
+	"magenta",
+	"purple",
+	"darkviolet",
+	"darkorchid",
+	"plum",
+	"thistle",
+	"violet",
+	"lavender",
+	"pink",
+	"lightpink",
+	"palevioletred",
+];
+
+function buildCountsWithColors(values, palette) {
 	const counts = new Map();
 	for (const v of values) {
 		if (!v) continue;
@@ -178,7 +259,7 @@ function buildCountsWithColors(values) {
 	const result = [];
 	for (let i = 0; i < unique.length; i += 1) {
 		const key = unique[i];
-		result.push({ key, count: counts.get(key), color: COLOR_PALETTE[i % COLOR_PALETTE.length] });
+		result.push({ key, count: counts.get(key), color: palette[i % palette.length] });
 	}
 	return result;
 }
@@ -225,8 +306,8 @@ function buildNodeGroupStats(nodes) {
 	const median = numericMedian(elapsed);
 	const mean = numericMean(elapsed);
 
-	const pidCounts = buildCountsWithColors(nodes.map((n) => n.state.djangoPid));
-	const tidCounts = buildCountsWithColors(nodes.map((n) => n.state.djangoTid));
+	const pidCounts = buildCountsWithColors(nodes.map((n) => n.state.djangoPid), PROCESS_COLOR_PALETTE);
+	const tidCounts = buildCountsWithColors(nodes.map((n) => n.state.djangoTid), THREAD_COLOR_PALETTE);
 
 	const buckets = computeConcurrencyBuckets(nodes);
 
