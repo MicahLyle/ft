@@ -145,7 +145,7 @@ function numericMean(values) {
 	return Number((sum / nums.length).toFixed(4));
 }
 
-// 32 distinct process colors (PIDs), spaced across hues from the 140 HTML color names.
+// 32 PID colors
 const PROCESS_COLOR_PALETTE = [
 	"red",
 	"orangered",
@@ -181,7 +181,7 @@ const PROCESS_COLOR_PALETTE = [
 	"darkmagenta",
 ];
 
-// 64 distinct thread colors (TIDs), spaced and non-overlapping with process colors.
+// 64 TID colors
 const THREAD_COLOR_PALETTE = [
 	"firebrick",
 	"darkred",
