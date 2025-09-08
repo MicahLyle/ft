@@ -15,7 +15,6 @@ from nanodjango import Django
 from pydantic import BaseModel, Field
 
 app = Django(
-
     INSTALLED_APPS=[
         "django.contrib.auth",
         "django.contrib.contenttypes",
@@ -25,7 +24,7 @@ app = Django(
     MIDDLEWARE=[
         "whitenoise.middleware.WhiteNoiseMiddleware",
         "ft.middleware.outer_middleware",
-            ],
+    ],
     PASSWORD_HASHERS=[
         "ft.hashers.Blake3PasswordHasher",
         "django.contrib.auth.hashers.PBKDF2PasswordHasher",
