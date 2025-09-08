@@ -53,6 +53,7 @@ class Node {
 			"hash-pw": "/api/sync/pw/set",
 			"check-pw": "/api/sync/pw/check",
 			"hash-and-check-pw": "/api/sync/pw/set-and-check",
+			"hash-and-store-pw": "/api/sync/pw/set-and-store"
 		}[operation];
 
 		try {
@@ -388,7 +389,7 @@ const App = {
 
 			const promises = nodes.map(async (n) => {
 				const { data, status } = await n.run(config.operation, config);
-				if (config.operation === "hash-pw" && data && data.ok === true) {
+				if ((config.operation === "hash-pw" || config.operation === "hash-and-store-pw") && data && data.ok === true) {
 					hasHashed.value = true;
 				}
 				if (config.operation === "hash-and-check-pw" && data) {
@@ -470,8 +471,10 @@ const App = {
 				<select v-model="config.operation" :disabled="running">
 					<option value="ping">ping</option>
 					<option value="hash-pw">hash-pw</option>
+					<option value="hash-and-store-pw" >hash-and-store-pw</option>
 					<option value="check-pw" :disabled="!canSelectCheckOps">check-pw</option>
 					<option value="hash-and-check-pw" :disabled="!canSelectCheckOps">hash-and-check-pw</option>
+
 				</select>
 
 				<label>Hasher:</label>
@@ -479,6 +482,7 @@ const App = {
 					<option value="pbkdf2">pbkdf2</option>
 					<option value="argon">argon</option>
 					<option value="bcrypt">bcrypt</option>
+					<option value="blake3">blake3</option>
 				</select>
 
 				<label>Nodes:</label>
