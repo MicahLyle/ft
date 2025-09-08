@@ -482,6 +482,7 @@ const App = {
 					<option value="pbkdf2">pbkdf2</option>
 					<option value="argon">argon</option>
 					<option value="bcrypt">bcrypt</option>
+					<option value="blake3">blake3</option>
 				</select>
 
 				<label>Nodes:</label>

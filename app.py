@@ -15,14 +15,25 @@ from nanodjango import Django
 from pydantic import BaseModel, Field
 
 app = Django(
-    MIDDLEWARE=[
-        "ft.middleware.outer_middleware",
-        "whitenoise.middleware.WhiteNoiseMiddleware",
 
-        "django.contrib.sessions.middleware.SessionMiddleware",
-        "django.contrib.auth.middleware.AuthenticationMiddleware",
-        "django.contrib.messages.middleware.MessageMiddleware",
-    ]
+    INSTALLED_APPS=[
+        "django.contrib.auth",
+        "django.contrib.contenttypes",
+        "nanodjango",
+        "ft",
+    ],
+    MIDDLEWARE=[
+        "whitenoise.middleware.WhiteNoiseMiddleware",
+        "ft.middleware.outer_middleware",
+            ],
+    PASSWORD_HASHERS=[
+        "ft.hashers.Blake3PasswordHasher",
+        "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+        "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
+        "django.contrib.auth.hashers.Argon2PasswordHasher",
+        "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
+        "django.contrib.auth.hashers.ScryptPasswordHasher",
+    ],
 )
 
 
@@ -39,9 +50,7 @@ def with_error_type(view_func):
     return _wrapped
 
 
-@app.admin
 class CountLog(models.Model):
-    # Standard Django model, registered with the admin site
     timestamp = models.DateTimeField(auto_now_add=True)
 
 
@@ -71,7 +80,6 @@ class LatestPwManager(models.Manager):
         )
 
 
-@app.admin
 class LatestPw(models.Model):
     req_id = models.CharField(max_length=63)
     pw = models.CharField(max_length=255)
@@ -105,8 +113,10 @@ def add(request):
 class PwPayload(BaseModel):
     pw: str = Field(min_length=6, max_length=40)
     db: Literal["sqlite", "postgres", "mysql"]
-    operation: Literal["ping", "hash-pw", "check-pw", "hash-and-check-pw", "hash-and-store-pw"]
-    hasher: Literal["bcrypt", "argon", "pbkdf2"]
+    operation: Literal[
+        "ping", "hash-pw", "check-pw", "hash-and-check-pw", "hash-and-store-pw"
+    ]
+    hasher: Literal["bcrypt", "argon", "pbkdf2", "blake3"]
 
 
 @app.api.post("/sync/pw/ping")
@@ -132,6 +142,7 @@ def sync_pw_set(request, payload: PwPayload):
         "pbkdf2": "pbkdf2_sha256",
         "argon": "argon2",
         "bcrypt": "bcrypt_sha256",
+        "blake3": "blake3",
     }
     django_hasher = hasher_map[payload.hasher]
 
@@ -144,11 +155,18 @@ def sync_pw_set(request, payload: PwPayload):
         for _ in range(4):
             last_hash = make_password(payload.pw, salt=salt, hasher=django_hasher)
         ok = bool(first_hash == last_hash)
-    else:
+    elif django_hasher in ("argon2", "bcrypt_sha256"):
         # Argon2 and bcrypt: don't pass a salt; hash 5 times and verify last with check_password.
         for _ in range(5):
             last_hash = make_password(payload.pw, hasher=django_hasher)
         ok = check_password(payload.pw, last_hash or "")
+    else:
+        # For BLAKE3, use a fixed per-request hex salt and compare the first and fifth hashes. Note: our Blake3PasswordHasher expects a hex-encoded salt string.
+        salt = get_random_string(32, allowed_chars="0123456789abcdef")
+        first_hash = make_password(payload.pw, salt=salt, hasher=django_hasher)
+        for _ in range(4):
+            last_hash = make_password(payload.pw, salt=salt, hasher=django_hasher)
+        ok = bool(first_hash == last_hash)
 
     return JsonResponse(
         {
@@ -211,6 +229,7 @@ def sync_pw_set_and_check(request, payload: PwPayload):
         "pbkdf2": "pbkdf2_sha256",
         "argon": "argon2",
         "bcrypt": "bcrypt_sha256",
+        "blake3": "blake3",
     }
     django_hasher = hasher_map[payload.hasher]
 
@@ -260,6 +279,7 @@ def sync_pw_set_and_check(request, payload: PwPayload):
             status=404,
         )
 
+
 @app.api.post("/sync/pw/set-and-store")
 @with_error_type
 def sync_pw_set_and_store(request, payload: PwPayload):
@@ -269,6 +289,7 @@ def sync_pw_set_and_store(request, payload: PwPayload):
         "pbkdf2": "pbkdf2_sha256",
         "argon": "argon2",
         "bcrypt": "bcrypt_sha256",
+        "blake3": "blake3",
     }
     django_hasher = hasher_map[payload.hasher]
 
@@ -278,9 +299,14 @@ def sync_pw_set_and_store(request, payload: PwPayload):
         salt = get_random_string(10)
         for _ in range(5):
             last_hash = make_password(payload.pw, salt=salt, hasher=django_hasher)
-    else:
+    elif django_hasher in ("argon2", "bcrypt_sha256"):
         for _ in range(5):
             last_hash = make_password(payload.pw, hasher=django_hasher)
+    else:
+        # For BLAKE3, reuse a predetermined hex salt across the five runs.
+        salt = get_random_string(32, allowed_chars="0123456789abcdef")
+        for _ in range(5):
+            last_hash = make_password(payload.pw, salt=salt, hasher=django_hasher)
 
     LatestPw.objects.upsert_hashed(req_id=req_id, hashed_pw=last_hash or "")
 
@@ -293,6 +319,7 @@ def sync_pw_set_and_store(request, payload: PwPayload):
         },
         status=200,
     )
+
 
 @app.route("/slow/")
 async def slow(request):
