@@ -345,3 +345,7 @@ app.templates["index.html"] = """<!doctype html>
     </body>
   </html>
 """
+
+# Expose top-level callables for WSGI/ASGI servers.
+wsgi = app.wsgi
+asgi = app.asgi
