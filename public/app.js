@@ -53,7 +53,7 @@ class Node {
 			"hash-pw": "/api/sync/pw/set",
 			"check-pw": "/api/sync/pw/check",
 			"hash-and-check-pw": "/api/sync/pw/set-and-check",
-			"hash-and-store-pw": "/api/sync/pw/set-and-store"
+			"hash-and-store-pw": "/api/sync/pw/set-and-store",
 		}[operation];
 
 		try {
@@ -97,10 +97,14 @@ class Node {
 			this.state.djangoPid = djangoPid || undefined;
 			this.state.djangoTid = djangoTid || undefined;
 			this.state.httpStatus = res.status;
-			this.state.concurrencyC1 = c1s !== null && c1s !== "" && !Number.isNaN(parseInt(c1s, 10)) ? parseInt(c1s, 10) : undefined;
-			this.state.concurrencyC2 = c2s !== null && c2s !== "" && !Number.isNaN(parseInt(c2s, 10)) ? parseInt(c2s, 10) : undefined;
-			this.state.concurrencyC3 = c3s !== null && c3s !== "" && !Number.isNaN(parseInt(c3s, 10)) ? parseInt(c3s, 10) : undefined;
-			this.state.concurrencyC4 = c4s !== null && c4s !== "" && !Number.isNaN(parseInt(c4s, 10)) ? parseInt(c4s, 10) : undefined;
+			this.state.concurrencyC1 =
+				c1s !== null && c1s !== "" && !Number.isNaN(parseInt(c1s, 10)) ? parseInt(c1s, 10) : undefined;
+			this.state.concurrencyC2 =
+				c2s !== null && c2s !== "" && !Number.isNaN(parseInt(c2s, 10)) ? parseInt(c2s, 10) : undefined;
+			this.state.concurrencyC3 =
+				c3s !== null && c3s !== "" && !Number.isNaN(parseInt(c3s, 10)) ? parseInt(c3s, 10) : undefined;
+			this.state.concurrencyC4 =
+				c4s !== null && c4s !== "" && !Number.isNaN(parseInt(c4s, 10)) ? parseInt(c4s, 10) : undefined;
 
 			let data = null;
 			try {
@@ -307,16 +311,32 @@ function buildNodeGroupStats(nodes) {
 	const median = numericMedian(elapsed);
 	const mean = numericMean(elapsed);
 
-	const pidCounts = buildCountsWithColors(nodes.map((n) => n.state.djangoPid), PROCESS_COLOR_PALETTE);
-	const tidCounts = buildCountsWithColors(nodes.map((n) => n.state.djangoTid), THREAD_COLOR_PALETTE);
+	const pidCounts = buildCountsWithColors(
+		nodes.map((n) => n.state.djangoPid),
+		PROCESS_COLOR_PALETTE
+	);
+	const tidCounts = buildCountsWithColors(
+		nodes.map((n) => n.state.djangoTid),
+		THREAD_COLOR_PALETTE
+	);
 
 	const buckets = computeConcurrencyBuckets(nodes);
 
+	// Concurrency summary from buckets
+	const concurrencyValues = buckets.map((b) => b.concurrency);
+	const concurrencyMin = concurrencyValues.length ? Math.min(...concurrencyValues) : undefined;
+	const concurrencyMax = concurrencyValues.length ? Math.max(...concurrencyValues) : undefined;
+	const concurrencyMedian = concurrencyValues.length ? numericMedian(concurrencyValues) : undefined;
+	const concurrencyMean = concurrencyValues.length ? numericMean(concurrencyValues) : undefined;
+
 	// Compute the maximum server end delta (relative to earliest JS start), to size x-axes
 	let maxServerEndDelta = undefined;
-	const serverCandidates = nodes.filter((n) => typeof n.state.jsStartEpochMs === "number"
-		&& typeof n.state.djangoStartDeltaMs === "number"
-		&& typeof n.state.djangoElapsedMs === "number");
+	const serverCandidates = nodes.filter(
+		(n) =>
+			typeof n.state.jsStartEpochMs === "number" &&
+			typeof n.state.djangoStartDeltaMs === "number" &&
+			typeof n.state.djangoElapsedMs === "number"
+	);
 	if (serverCandidates.length > 0) {
 		const globalStart = Math.min(...serverCandidates.map((n) => n.state.jsStartEpochMs));
 		const endDeltas = serverCandidates.map((n) => {
@@ -329,7 +349,39 @@ function buildNodeGroupStats(nodes) {
 		}
 	}
 
-	return { min, max, median, mean, pidCounts, tidCounts, buckets, maxServerEndDelta };
+	// Total time for all requests (based on JS start/end across nodes)
+	const jsValid = nodes.filter(
+		(n) => typeof n.state.jsStartEpochMs === "number" && typeof n.state.jsEndEpochMs === "number"
+	);
+	let totalBatchMs = undefined;
+	if (jsValid.length > 0) {
+		const gStart = Math.min(...jsValid.map((n) => n.state.jsStartEpochMs));
+		const gEnd = Math.max(...jsValid.map((n) => n.state.jsEndEpochMs));
+		const total = gEnd - gStart;
+		totalBatchMs = total > 0 ? Number(total.toFixed(4)) : undefined;
+	}
+
+	const distinctProcesses = pidCounts.length;
+	const distinctThreads = tidCounts.length;
+
+	return {
+		min,
+		max,
+		median,
+		mean,
+		pidCounts,
+		tidCounts,
+		buckets,
+		maxServerEndDelta,
+		// New summary fields
+		distinctProcesses,
+		distinctThreads,
+		concurrencyMin,
+		concurrencyMax,
+		concurrencyMedian,
+		concurrencyMean,
+		totalBatchMs,
+	};
 }
 
 const App = {
@@ -428,7 +480,8 @@ const App = {
 			return builder ? builder(nodes) : {};
 		});
 		const concurrencyLineOptions = computed(() => {
-			const builder = (globalThis.FTCharts && FTCharts.options && FTCharts.options.buildConcurrencyLineOptions) || null;
+			const builder =
+				(globalThis.FTCharts && FTCharts.options && FTCharts.options.buildConcurrencyLineOptions) || null;
 			return builder ? builder(groupStats.value) : {};
 		});
 		const waterfallOptions = computed(() => {
@@ -542,15 +595,39 @@ const App = {
 				</tbody>
 			</table>
 
+			<!-- Summary Stats -->
+			<div v-if="nodes.length > 0" style="margin-top: 16px; padding: 12px; border: 2px solid #999; background: #fafafa; font-size: 15px;">
+				<h3 style="margin: 0 0 8px 0; font-size: 18px;">Summary</h3>
+				<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 16px; align-items: center;">
+					<div><strong>Processes</strong>: {{ groupStats.distinctProcesses ?? '—' }}</div>
+					<div><strong>Threads</strong>: {{ groupStats.distinctThreads ?? '—' }}</div>
+					<div><strong>Total time (ms)</strong>: {{ groupStats.totalBatchMs ?? '—' }}</div>
+
+					<div><strong>Django Min (ms)</strong>: {{ groupStats.min ?? '—' }}</div>
+					<div><strong>Django Max (ms)</strong>: {{ groupStats.max ?? '—' }}</div>
+					<div><strong>Django Mean (ms)</strong>: {{ groupStats.mean ?? '—' }}</div>
+					<div><strong>Django Median (ms)</strong>: {{ groupStats.median ?? '—' }}</div>
+
+					<div><strong>Concurrency Min</strong>: {{ groupStats.concurrencyMin ?? '—' }}</div>
+					<div><strong>Concurrency Max</strong>: {{ groupStats.concurrencyMax ?? '—' }}</div>
+					<div><strong>Concurrency Mean</strong>: {{ groupStats.concurrencyMean ?? '—' }}</div>
+					<div><strong>Concurrency Median</strong>: {{ groupStats.concurrencyMedian ?? '—' }}</div>
+				</div>
+			</div>
+
 			<div v-if="nodes.length > 0" style="margin-top: 16px;">
 				<h3>Charts</h3>
-				<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
-					<v-chart :option="pidBarOptions" autoresize style="width: 100%; height: 260px; border: 1px solid #ddd;" />
-					<v-chart :option="tidBarOptions" autoresize style="width: 100%; height: 260px; border: 1px solid #ddd;" />
-					<v-chart :option="idxToDjangoElapsedOptions" autoresize style="width: 100%; height: 260px; border: 1px solid #ddd;" />
-					<v-chart :option="idxToOverallMsOptions" autoresize style="width: 100%; height: 260px; border: 1px solid #ddd;" />
-					<v-chart :option="concurrencyLineOptions" autoresize style="width: 100%; height: 260px; border: 1px solid #ddd; grid-column: span 2;" />
-					<v-chart :option="waterfallOptions" autoresize style="width: 100%; height: 340px; border: 1px solid #ddd; grid-column: span 2;" />
+				<div>
+					<div id="chart-group-main" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+						<v-chart :option="pidBarOptions" autoresize style="width: 100%; height: 260px; border: 1px solid #ddd;" />
+						<v-chart :option="tidBarOptions" autoresize style="width: 100%; height: 260px; border: 1px solid #ddd;" />
+						<v-chart :option="idxToDjangoElapsedOptions" autoresize style="width: 100%; height: 260px; border: 1px solid #ddd;" />
+						<v-chart :option="idxToOverallMsOptions" autoresize style="width: 100%; height: 260px; border: 1px solid #ddd;" />
+					</div>
+					<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px;">
+						<v-chart :option="concurrencyLineOptions" autoresize style="width: 100%; height: 260px; border: 1px solid #ddd; grid-column: span 2;" />
+						<v-chart :option="waterfallOptions" autoresize style="width: 100%; height: 340px; border: 1px solid #ddd; grid-column: span 2;" />
+					</div>
 				</div>
 			</div>
 

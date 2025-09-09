@@ -20,8 +20,7 @@ class Blake3PasswordHasher(BasePasswordHasher):
 
     algorithm = "blake3"
 
-   
-    rounds: int = 5000
+    rounds: int = 500
 
     def salt(self) -> str:
         return binascii.hexlify(secrets.token_bytes(16)).decode("ascii")
@@ -34,6 +33,10 @@ class Blake3PasswordHasher(BasePasswordHasher):
         if rounds < 1:
             raise ValueError("rounds must be >= 1")
 
+        if self.rounds:
+            # Just force to `self.rounds` regardless and ignore iterations.
+            rounds = self.rounds
+
         # Compute BLAKE3(salt || password) for 'rounds' iterations.
         # Each iteration feeds the previous digest back into the next.
         pwd_bytes = password.encode("utf-8")
@@ -43,7 +46,7 @@ class Blake3PasswordHasher(BasePasswordHasher):
         hasher.update(salt_bytes)
         hasher.update(pwd_bytes)
         digest = hasher.finalize()
-        
+
         # Subsequent rounds hash the previous digest again with the salt.
         for _ in range(rounds - 1):
             hasher = pure_blake3.Hasher()
@@ -55,7 +58,6 @@ class Blake3PasswordHasher(BasePasswordHasher):
         return f"{self.algorithm}${rounds}${salt}${hex_digest}"
 
     def verify(self, password: str, encoded: str) -> bool:
-
         algorithm, rounds_str, salt, hex_digest = encoded.split("$", 3)
         if algorithm != self.algorithm:
             return False
@@ -93,5 +95,3 @@ class Blake3PasswordHasher(BasePasswordHasher):
             return
         # Perform extra hashing without returning the result.
         _ = self.encode(password, salt, iterations=int(rounds_str) + extra)
-
-

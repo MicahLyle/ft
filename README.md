@@ -1,5 +1,16 @@
 # README
 
+## Runserver
+* runserver, synchronous, GIL
+  * `runserver-sync-gil-t-314`: `MODE=rns-sync-gil-t-314 uv run -p python3.14 nanodjango manage app.py runserver 0:8000`
+* runserver, synchronous, Free Threaded
+  * `runserver-sync-ft-t-314`: `MODE=rns-sync-ft-t-314 PYTHON_GIL=0 uv run -p python3.14t nanodjango manage app.py runserver 0:8000`
+
+## WSGI/Sync
+
+## ASGI/Async
+
+## (Older, Less Relevant) ##
 ## Possible Modes
 
 ### Runserver (sync only, worker t)
