@@ -7,6 +7,8 @@
   * `runserver-sync-ft-t-314`: `MODE=rns-sync-ft-t-314 PYTHON_GIL=0 uv run -p python3.14t nanodjango manage app.py runserver 0:8000`
 
 ## WSGI/Sync
+* gunicorn, synchronous, GIL
+  * `gunicorn-sync-gil-p-314`: `MODE=gun-sync-gil-p-314 uv run -p python3.14 gunicorn app:wsgi --bind 0.0.0.0:8001 --workers 8 --name ft`
 
 ## ASGI/Async
 
