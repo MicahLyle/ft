@@ -7,8 +7,8 @@ requires-python = ">=3.13"
 dependencies = [
     # "argon2-cffi>=25.1.0",
     # "bcrypt>=4.3.0",
-    "granian>=2.5.0",
-    "gunicorn>=23.0.0",
+    "granian[pname]>=2.5.0",
+    "gunicorn[setproctitle]>=23.0.0",
     "nanodjango>=0.11.2",
     "pydantic>=2.12.0a1",
     "pydantic-settings>=2.4.0",
