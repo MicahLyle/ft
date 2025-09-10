@@ -14,3 +14,11 @@ Notes:
 - Hashing remains CPU-bound and uses the same hasher mapping/salt behavior as sync functions.
 - Async DB interactions rely on Django async manager methods where available; a get-or-create pattern is used for upsert semantics.
 
+## Gunicorn + Uvicorn worker (README update)
+
+- Added README entries to run Gunicorn with the Uvicorn worker against `app:asgi` on port 8001, matching existing sync examples.
+- Commands added:
+  - GIL (3.14): `MODE=gun-async-gil-p-314 uv run -p python3.14 gunicorn -k uvicorn.workers.UvicornWorker app:asgi --bind 0.0.0.0:8001 --workers 8 --name ft`
+  - Free-threaded (3.14t): `MODE=gun-async-ft-p-314t PYTHON_GIL=0 uv run -p python3.14t gunicorn -k uvicorn.workers.UvicornWorker app:asgi --bind 0.0.0.0:8001 --workers 2 --name ft`
+- Rationale: user prefers built-in `uvicorn.workers.UvicornWorker`. Note: Uvicorn’s deployment docs mention the `uvicorn.workers` module is deprecated and recommend the external `uvicorn-worker` package; we stayed with the built-in per user choice. Reference: [Uvicorn deployment](https://www.uvicorn.org/deployment/).
+
