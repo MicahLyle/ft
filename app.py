@@ -451,6 +451,8 @@ async def async_pw_set_and_store(request, payload: PwPayload):
     )
 
 
-# Expose top-level callables for WSGI/ASGI servers.
 wsgi = app.wsgi
-asgi = app.asgi
+async def asgi(scope, receive, send):
+    return await app.asgi(scope, receive, send)
+
+application = asgi

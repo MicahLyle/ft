@@ -12,6 +12,10 @@
 
 ## ASGI/Async
 
+* gunicorn (ASGI, Uvicorn worker)
+  * `gunicorn-async-gil-p-314`: `MODE=gun-async-gil-p-314 uv run -p python3.14 gunicorn -k uvicorn.workers.UvicornWorker app:asgi --bind 0.0.0.0:8001 --workers 8 --name ft`
+  * `gunicorn-async-ft-p-314t`: `MODE=gun-async-ft-p-314t PYTHON_GIL=0 uv run -p python3.14t gunicorn -k uvicorn.workers.UvicornWorker app:asgi --bind 0.0.0.0:8001 --workers 2 --name ft`
+
 ## (Older, Less Relevant) ##
 ## Possible Modes
 
