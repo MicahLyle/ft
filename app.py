@@ -113,7 +113,8 @@ class PwPayload(BaseModel):
     pw: str = Field(min_length=6, max_length=40)
     db: Literal["sqlite", "postgres", "mysql"]
     operation: Literal[
-        "ping", "hash-pw", "check-pw", "hash-and-check-pw", "hash-and-store-pw"
+        "ping", "hash-pw", "check-pw", "hash-and-check-pw", "hash-and-store-pw",
+        "async_hash_password", "async_hash_and_store"
     ]
     hasher: Literal["bcrypt", "argon", "pbkdf2", "blake3"]
 
@@ -344,6 +345,105 @@ app.templates["index.html"] = """<!doctype html>
     </body>
   </html>
 """
+
+# Async API endpoints mirroring sync logic
+
+
+@app.api.post("/async/pw/set")
+async def async_pw_set(request, payload: PwPayload):
+    req_id = request.META.get("HTTP_X_DJANGO_REQUEST_ID") or ""
+    assert req_id and isinstance(req_id, str)
+    hasher_map = {
+        "pbkdf2": "pbkdf2_sha256",
+        "argon": "argon2",
+        "bcrypt": "bcrypt_sha256",
+        "blake3": "blake3",
+    }
+    django_hasher = hasher_map[payload.hasher]
+
+    ok: bool
+    last_hash: str | None = None
+    if django_hasher == "pbkdf2_sha256":
+        # PBKDF2: use a fixed per-request salt and compare first vs fifth hashes.
+        salt = get_random_string(10)
+        first_hash = make_password(payload.pw, salt=salt, hasher=django_hasher)
+        for _ in range(4):
+            last_hash = make_password(payload.pw, salt=salt, hasher=django_hasher)
+        ok = bool(first_hash == last_hash)
+    elif django_hasher in ("argon2", "bcrypt_sha256"):
+        # Argon2 and bcrypt: don't pass a salt; hash 5 times and verify last with check_password.
+        for _ in range(5):
+            last_hash = make_password(payload.pw, hasher=django_hasher)
+        ok = check_password(payload.pw, last_hash or "")
+    else:
+        # For BLAKE3, use a fixed per-request hex salt and compare the first and fifth hashes.
+        salt = get_random_string(32, allowed_chars="0123456789abcdef")
+        first_hash = make_password(payload.pw, salt=salt, hasher=django_hasher)
+        for _ in range(4):
+            last_hash = make_password(payload.pw, salt=salt, hasher=django_hasher)
+        ok = bool(first_hash == last_hash)
+
+    return JsonResponse(
+        {
+            "ok": ok,
+            "pw": payload.pw,
+            "length": len(payload.pw),
+            "error_type": None,
+        },
+        status=200,
+    )
+
+
+@app.api.post("/async/pw/set-and-store")
+async def async_pw_set_and_store(request, payload: PwPayload):
+    req_id = request.META.get("HTTP_X_DJANGO_REQUEST_ID") or ""
+    assert req_id and isinstance(req_id, str)
+    hasher_map = {
+        "pbkdf2": "pbkdf2_sha256",
+        "argon": "argon2",
+        "bcrypt": "bcrypt_sha256",
+        "blake3": "blake3",
+    }
+    django_hasher = hasher_map[payload.hasher]
+
+    # Hash 5 times (per-hasher behavior matches sync_pw_set), store the final hash
+    last_hash: str | None = None
+    if django_hasher == "pbkdf2_sha256":
+        salt = get_random_string(10)
+        for _ in range(5):
+            last_hash = make_password(payload.pw, salt=salt, hasher=django_hasher)
+    elif django_hasher in ("argon2", "bcrypt_sha256"):
+        for _ in range(5):
+            last_hash = make_password(payload.pw, hasher=django_hasher)
+    else:
+        # For BLAKE3, reuse a predetermined hex salt across the five runs.
+        salt = get_random_string(32, allowed_chars="0123456789abcdef")
+        for _ in range(5):
+            last_hash = make_password(payload.pw, salt=salt, hasher=django_hasher)
+
+    # Async upsert via get-or-create pattern
+    try:
+        row = await LatestPw.objects.aget(req_id=req_id)
+        row.pw = last_hash or ""
+        row.as_of = timezone.now()
+        await row.asave(update_fields=["pw", "as_of"])  # type: ignore[attr-defined]
+    except LatestPw.DoesNotExist:
+        await LatestPw.objects.acreate(  # type: ignore[attr-defined]
+            req_id=req_id,
+            pw=last_hash or "",
+            as_of=timezone.now(),
+        )
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "pw": payload.pw,
+            "length": len(payload.pw),
+            "error_type": None,
+        },
+        status=200,
+    )
+
 
 # Expose top-level callables for WSGI/ASGI servers.
 wsgi = app.wsgi
