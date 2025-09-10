@@ -54,6 +54,8 @@ class Node {
 			"check-pw": "/api/sync/pw/check",
 			"hash-and-check-pw": "/api/sync/pw/set-and-check",
 			"hash-and-store-pw": "/api/sync/pw/set-and-store",
+			"async_hash_password": "/api/async/pw/set",
+			"async_hash_and_store": "/api/async/pw/set-and-store",
 		}[operation];
 
 		try {
@@ -525,6 +527,8 @@ const App = {
 					<option value="ping">ping</option>
 					<option value="hash-pw">hash-pw</option>
 					<option value="hash-and-store-pw" >hash-and-store-pw</option>
+					<option value="async_hash_password">async_hash_password</option>
+					<option value="async_hash_and_store">async_hash_and_store</option>
 					<option value="check-pw" :disabled="!canSelectCheckOps">check-pw</option>
 					<option value="hash-and-check-pw" :disabled="!canSelectCheckOps">hash-and-check-pw</option>
 
