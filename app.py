@@ -6,6 +6,7 @@ from django.contrib.auth.hashers import (
     check_password,
     make_password,
 )
+from asgiref.sync import sync_to_async
 from django.db import models
 from django.db.models import Q
 from django.http import JsonResponse
@@ -349,6 +350,11 @@ app.templates["index.html"] = """<!doctype html>
 # Async API endpoints mirroring sync logic
 
 
+# Async helpers for CPU-bound sync hash functions
+make_pw_async = sync_to_async(make_password, thread_sensitive=False)
+check_pw_async = sync_to_async(check_password, thread_sensitive=False)
+
+
 @app.api.post("/async/pw/set")
 async def async_pw_set(request, payload: PwPayload):
     req_id = request.META.get("HTTP_X_DJANGO_REQUEST_ID") or ""
@@ -366,21 +372,21 @@ async def async_pw_set(request, payload: PwPayload):
     if django_hasher == "pbkdf2_sha256":
         # PBKDF2: use a fixed per-request salt and compare first vs fifth hashes.
         salt = get_random_string(10)
-        first_hash = make_password(payload.pw, salt=salt, hasher=django_hasher)
+        first_hash = await make_pw_async(payload.pw, salt=salt, hasher=django_hasher)
         for _ in range(4):
-            last_hash = make_password(payload.pw, salt=salt, hasher=django_hasher)
+            last_hash = await make_pw_async(payload.pw, salt=salt, hasher=django_hasher)
         ok = bool(first_hash == last_hash)
     elif django_hasher in ("argon2", "bcrypt_sha256"):
         # Argon2 and bcrypt: don't pass a salt; hash 5 times and verify last with check_password.
         for _ in range(5):
-            last_hash = make_password(payload.pw, hasher=django_hasher)
-        ok = check_password(payload.pw, last_hash or "")
+            last_hash = await make_pw_async(payload.pw, hasher=django_hasher)
+        ok = await check_pw_async(payload.pw, last_hash or "")
     else:
         # For BLAKE3, use a fixed per-request hex salt and compare the first and fifth hashes.
         salt = get_random_string(32, allowed_chars="0123456789abcdef")
-        first_hash = make_password(payload.pw, salt=salt, hasher=django_hasher)
+        first_hash = await make_pw_async(payload.pw, salt=salt, hasher=django_hasher)
         for _ in range(4):
-            last_hash = make_password(payload.pw, salt=salt, hasher=django_hasher)
+            last_hash = await make_pw_async(payload.pw, salt=salt, hasher=django_hasher)
         ok = bool(first_hash == last_hash)
 
     return JsonResponse(
@@ -411,15 +417,15 @@ async def async_pw_set_and_store(request, payload: PwPayload):
     if django_hasher == "pbkdf2_sha256":
         salt = get_random_string(10)
         for _ in range(5):
-            last_hash = make_password(payload.pw, salt=salt, hasher=django_hasher)
+            last_hash = await make_pw_async(payload.pw, salt=salt, hasher=django_hasher)
     elif django_hasher in ("argon2", "bcrypt_sha256"):
         for _ in range(5):
-            last_hash = make_password(payload.pw, hasher=django_hasher)
+            last_hash = await make_pw_async(payload.pw, hasher=django_hasher)
     else:
         # For BLAKE3, reuse a predetermined hex salt across the five runs.
         salt = get_random_string(32, allowed_chars="0123456789abcdef")
         for _ in range(5):
-            last_hash = make_password(payload.pw, salt=salt, hasher=django_hasher)
+            last_hash = await make_pw_async(payload.pw, salt=salt, hasher=django_hasher)
 
     # Async upsert via get-or-create pattern
     try:
