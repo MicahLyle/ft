@@ -1,5 +1,24 @@
 # README
 
+# Disclaimer (Read First)
+- I've only tested this on Ubuntu.
+- You might need to adopt some of the commands for Windows (I'm using Windows and I just run this in WSL).
+- A lot of the code (especially frontend) was AI-generated (with heavy guidance). If you give the `@ai-notes/` folder to programs like Cursor, make sure `@ai-notes/overview.md` is read, it will help.
+- At the time of writing, the concurrency graph (not the waterfall, the concurrency graph) may not necessarily be correct in `gunicorn` or other multiprocessing scenarios since the counter is not actually shared among workers. This is a known bug/issue.
+- Lastly: Not all of the demo is or was used for the conference talk given. I explored a number of different avenues, and there are some half trodden/incomplete paths in this codebase. For example, I'm not actually using `MODE` as much as I was planning to. I do derive some information from it, but was going to use it to give better titles to the graphs and charts. I didn't get to that, but there's a reason most stuff is there, it's just probably not documented.
+
+
+# Setup
+1. `git clone https://github.com/MicahLyle/ft`
+2. `cd ft`
+3. Install [uv](https://docs.astral.sh/uv/getting-started/installation/) if you haven't already.
+4. `uv sync`
+5. `MODE=rns-sync-ft-t-314 PYTHON_GIL=0 uv run -p python3.14t nanodjango manage app.py runserver 0:8001`
+6. Visit `localhost:8001` and you're off to the races.
+
+# Misc Notes
+- Some of these may be out of date with the talk that was given. Some of these were things I was comparing.
+
 ## Runserver
 * runserver, synchronous, GIL
   * `runserver-sync-gil-t-314`: `MODE=rns-sync-gil-t-314 uv run -p python3.14 nanodjango manage app.py runserver 0:8000`
